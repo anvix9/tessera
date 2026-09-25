@@ -151,3 +151,47 @@ This trust model is deliberately simple and self-contained. The build plan (Phas
 - **Visa Trusted Agent Protocol**: Payment-specific trust
 
 These are adapter paths in `/interop/`, not replacements. Tessera owns the policy layer *above* whatever identity standard wins.
+
+## MCP Server (Phase 3)
+
+The trust model is enforced through a spec-compliant MCP server using the official MCP Python SDK (v2.2.0).
+
+### Transports
+
+| Transport | Use case | How to run |
+|-----------|----------|------------|
+| **Streamable HTTP** | Web-accessible terminal | `tessera serve --transport http --port 8001` |
+| **stdio** | Claude Desktop, local MCP clients | `tessera serve --transport stdio` |
+
+### Protocol
+
+The server implements JSON-RPC 2.0 over MCP with 5 tools:
+
+| Tool | Description | Auth required |
+|------|-------------|---------------|
+| `tessera_connect` | Start a session with a signed credential | No (anonymous allowed) |
+| `tessera_get_screen` | View current screen + available actions | Session |
+| `tessera_execute` | Execute an action on the current screen | Session + trust tier |
+| `tessera_audit_log` | View the full session audit log | Session |
+| `tessera_disconnect` | End the session | Session |
+
+### Credential Flow Through MCP
+
+```
+MCP Client                    Tessera MCP Server
+    │                              │
+    │ tools/call                   │
+    │ { tessera_connect,           │
+    │   credential: "eyJ..." }     │
+    │ ──────────────────────────>  │
+    │                              │ 1. Decode JWT → get operator_id
+    │                              │ 2. Look up operator in registry
+    │                              │ 3. Verify Ed25519 signature
+    │                              │ 4. Check expiration
+    │                              │ 5. Cap tier at operator's max
+    │                              │ 6. Create session with derived trust
+    │  <──────────────────────── │
+    │ { session_id, permissions }  │
+```
+
+The old REST server is preserved as `mcp/server_legacy.py` for reference.
