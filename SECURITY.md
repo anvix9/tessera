@@ -63,5 +63,5 @@ Several contract fields are declared but not checked at runtime:
 | OWASP ID | Risk | Tessera Relevance |
 |----------|------|-------------------|
 | LLM01 | Prompt Injection | Terminal actions pass through to real APIs — injection in action parameters could reach the website |
-| LLM06 | Excessive Agency | The trust-tier self-declaration bug is a direct instance of this risk |
+| LLM06 | Excessive Agency | The trust-tier self-declaration bug (now fixed) was a direct instance of this risk. Regression tests verify the fix. |
 | LLM07 | Insecure Plugin Design | MCP tools must validate all parameters against the contract before execution |

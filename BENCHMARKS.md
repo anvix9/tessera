@@ -229,3 +229,8 @@ Twenty CRM, Hoppscotch, Papermark, Documenso, Appwrite, Firefly III, Koel.
 - **Compound identifiers:** `/repos/{owner}/{repo}` requires knowing valid pairs
 - **Deep nesting:** max 1-level sub-resource; 2+ levels missed
 - **False positives:** structural inference can over-reach (61% precision)
+
+### Trust Model (Phase 1 — fixed)
+- ~~**Self-declared trust:** agents could claim any trust tier~~ → **Fixed.** Trust is now derived from Ed25519-signed credentials verified against an operator registry.
+- **Governance enforcement:** contract fields like `max_transaction_amount`, `max_daily_spend`, `requests_per_hour` are declared but not checked at runtime (Phase 2)
+- **MCP compliance:** server is REST/FastAPI, not yet JSON-RPC per MCP spec (Phase 3)
