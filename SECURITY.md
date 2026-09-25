@@ -20,17 +20,20 @@ Tessera is a governance layer between AI agents and websites. Security issues in
 
 ## Known Issues and Mitigations
 
-### Trust Tier Self-Declaration (CRITICAL — fix in progress)
+### Trust Tier Self-Declaration (FIXED in Phase 1)
 
-**Status:** Identified, fix planned for Phase 1.
+**Status:** Fixed.
 
-**Issue:** The current MCP server (`mcp/server.py`) accepts `trust_level` and `can_transact` as caller-supplied fields in the connect request. Any agent can self-declare `trust_level=super_agent` with `can_transact=True`, bypassing the entire governance model.
+**Issue:** The v0.1 MCP server accepted `trust_level` and `can_transact` as caller-supplied fields in the connect request. Any agent could self-declare `trust_level=super_agent` with `can_transact=True`.
 
-**Impact:** Complete bypass of permission controls. An anonymous agent can claim verified/super_agent status and execute privileged actions including autonomous transactions.
+**Fix:** The `trust_level` and `can_transact` fields have been removed from `ConnectRequest` entirely. Trust is now derived from Ed25519-signed credentials verified against an operator registry. The field cannot be sent because it does not exist in the request model.
 
-**Mitigation (current):** None in code. The simulation environments do not process real transactions.
-
-**Fix (Phase 1):** Remove caller-supplied trust fields entirely. Trust tiers will be derived from cryptographically verified agent credentials. A regression test will assert that forged trust payloads are rejected.
+**Regression tests:** `evals/test_trust_regression.py` — 10 tests including:
+- `test_trust_level_field_does_not_exist` — the field is gone from the model
+- `test_can_transact_field_does_not_exist` — the field is gone from the model
+- `test_old_format_ignored` — sending the old format does not grant elevated access
+- `test_forged_credential_rejected` — wrong key → 401
+- `test_tier_capped_at_operator_max` — credential tier capped at operator's registered max
 
 ### Governance Fields Not Enforced
 

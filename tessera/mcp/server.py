@@ -21,20 +21,20 @@ from typing import Optional
 
 from tessera.contract.schema import TesseraContract, AgentProfile, AgentTrust, AgentCapabilities
 from tessera.terminal.engine import TesseraTerminal
+from tessera.contract.credentials import (
+    verify_agent_credential,
+    VerifiedCredential,
+    VerificationError,
+)
+from tessera.contract.operator_registry import OperatorRegistry
 
 
 # ── Request Models ──
 
 class ConnectRequest(BaseModel):
-    provider: str
-    agent_name: str
-    trust_level: str = "identified"   # anonymous, identified, verified, super_agent
-    purpose: str = "general"
-    operator: Optional[str] = None
-    can_transact: bool = False
-    max_transaction_amount: Optional[float] = None
-    max_daily_spend: Optional[float] = None
-    delegated_by_user: bool = False
+    credential: Optional[str] = None   # Signed JWT from operator (EdDSA)
+    # If no credential is provided, the agent connects as anonymous (read-only).
+    # Trust tier is DERIVED from the credential, never self-declared.
 
 
 class ExecuteRequest(BaseModel):
@@ -58,8 +58,16 @@ class DisconnectRequest(BaseModel):
 
 # ── MCP Server App ──
 
-def create_mcp_server(contract_path: str, site_url: str) -> FastAPI:
-    """Create a FastAPI MCP server for a Tessera terminal."""
+def create_mcp_server(contract_path: str, site_url: str, registry_path: str = None) -> FastAPI:
+    """
+    Create a FastAPI MCP server for a Tessera terminal.
+
+    Args:
+        contract_path: Path to the contract JSON file
+        site_url: URL of the actual website the terminal proxies to
+        registry_path: Path to operator registry JSON. If None, all agents
+                       connect as anonymous (no credential verification).
+    """
 
     # Load contract
     with open(contract_path) as f:
@@ -69,11 +77,14 @@ def create_mcp_server(contract_path: str, site_url: str) -> FastAPI:
     # Create terminal
     terminal = TesseraTerminal(contract, site_url)
 
+    # Load operator registry (if provided)
+    registry = OperatorRegistry(registry_path) if registry_path else None
+
     app = FastAPI(
         title=f"Tessera MCP Server — {contract.site_name}",
         description=f"MCP tools for AI agents to interact with {contract.site_name} "
                     "through the Tessera terminal.",
-        version="0.1.0",
+        version="0.2.0",
     )
 
     # ── Tool: Connect ──
@@ -81,22 +92,53 @@ def create_mcp_server(contract_path: str, site_url: str) -> FastAPI:
     @app.post("/tools/tessera_connect")
     def tessera_connect(req: ConnectRequest):
         """
-        Connect to the Tessera terminal with an agent profile.
-        Returns session ID and resolved permissions.
+        Connect to the Tessera terminal.
+
+        If a signed credential is provided, it is verified against the
+        operator registry and the trust tier is derived from the credential.
+        If no credential is provided, the agent connects as anonymous.
+
+        Trust tier is NEVER self-declared. It is always derived from:
+          - A valid, signed credential → tier from token (capped at operator max)
+          - No credential → anonymous
         """
-        agent = AgentProfile(
-            provider=req.provider,
-            agent_name=req.agent_name,
-            trust_level=AgentTrust(req.trust_level),
-            purpose=req.purpose,
-            operator=req.operator,
-            capabilities=AgentCapabilities(
-                can_transact=req.can_transact,
-                max_transaction_amount=req.max_transaction_amount,
-                max_daily_spend=req.max_daily_spend,
-            ),
-            delegated_by_user=req.delegated_by_user,
-        )
+        if req.credential and registry:
+            # Verify the credential
+            result = verify_agent_credential(req.credential, registry)
+
+            if isinstance(result, VerificationError):
+                raise HTTPException(
+                    status_code=401,
+                    detail={
+                        "error": result.code,
+                        "message": result.message,
+                    }
+                )
+
+            # Build AgentProfile from verified credential
+            agent = AgentProfile(
+                provider=result.operator_id,
+                agent_name=result.agent_name,
+                agent_id=result.agent_id,
+                trust_level=AgentTrust(result.derived_tier),
+                purpose=result.purpose,
+                operator=result.operator_id,
+                credentials=req.credential,
+                capabilities=AgentCapabilities(
+                    can_transact=result.capabilities.get("can_transact", False),
+                    max_transaction_amount=result.capabilities.get("max_transaction"),
+                    max_daily_spend=result.capabilities.get("max_daily_spend"),
+                ),
+            )
+        else:
+            # No credential → anonymous
+            agent = AgentProfile(
+                provider="anonymous",
+                agent_name="anonymous-agent",
+                trust_level=AgentTrust.ANONYMOUS,
+                purpose="browsing",
+            )
+
         result = terminal.connect(agent)
         if result["status"] == "denied":
             raise HTTPException(status_code=403, detail=result["reason"])
@@ -203,6 +245,8 @@ if __name__ == "__main__":
                         help="Path to contract JSON")
     parser.add_argument("--site-url", default="http://localhost:8000",
                         help="URL of the actual website")
+    parser.add_argument("--registry", default=None,
+                        help="Path to operator registry JSON (enables credential verification)")
     parser.add_argument("--port", type=int, default=8001,
                         help="Port for the MCP server")
     args = parser.parse_args()
@@ -211,8 +255,9 @@ if __name__ == "__main__":
     print(f"Starting Tessera MCP Server")
     print(f"  Contract: {contract_path}")
     print(f"  Site URL: {args.site_url}")
+    print(f"  Registry: {args.registry or 'None (all agents connect as anonymous)'}")
     print(f"  MCP Port: {args.port}")
     print(f"  Docs: http://localhost:{args.port}/docs")
 
-    app = create_mcp_server(contract_path, args.site_url)
+    app = create_mcp_server(contract_path, args.site_url, args.registry)
     uvicorn.run(app, host="0.0.0.0", port=args.port)
