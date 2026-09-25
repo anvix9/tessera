@@ -76,7 +76,7 @@ pytest evals/ -v
 
 ## Known limitations
 
-- **Workflow inference:** The compiler extracts routes, not workflows. It knows `GET /products` and `POST /orders` exist but doesn't know the ordering `search → cart → checkout → payment`. This is the next frontier.
+- **Workflow inference:** The compiler extracts routes, not workflows. It knows `GET /products` and `POST /orders` exist but doesn't know the ordering `search → cart → checkout → payment`.
 - **Governance enforcement:** Several contract fields (`max_transaction_amount`, `max_daily_spend`, `requests_per_hour`) are declared but not yet checked at runtime (Phase 2).
 
 ## License
