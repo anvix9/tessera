@@ -68,11 +68,13 @@ def setup(tmp_path):
 
 
 def _call_sync(handler, tool_name, args=None):
-    """Helper: call an async handler synchronously and parse the JSON result."""
-    result = asyncio.get_event_loop().run_until_complete(
-        handler(tool_name, args or {})
-    )
-    return json.loads(result[0].text)
+    """Call an async MCP handler synchronously, return parsed JSON."""
+    loop = asyncio.new_event_loop()
+    try:
+        result = loop.run_until_complete(handler(tool_name, args or {}))
+        return json.loads(result[0].text)
+    finally:
+        loop.close()
 
 
 class TestSelfDeclaredTrustRejected:
