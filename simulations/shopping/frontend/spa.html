@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SubwayShop — SPA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #141414; --border: #222; --text: #e8e8e8;
+    --muted: #777; --accent: #ff6b35; --accent-hover: #ff8555;
+    --success: #22c55e; --error: #ef4444; --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  
+  /* SPA Shell — this is ALL the browser sees before JS runs */
+  #root { /* empty until React mounts */ }
+  .app-loading { display: flex; justify-content: center; align-items: center; height: 100vh; color: var(--muted); font-size: 14px; }
+  
+  /* Layout */
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
+  .header h1 { font-size: 20px; font-weight: 700; } .header h1 span { color: var(--accent); }
+  .header-actions { display: flex; gap: 12px; align-items: center; }
+  .header-actions button { background: none; border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .header-actions button:hover { border-color: var(--accent); }
+  .header-actions .cart-btn { position: relative; }
+  .cart-badge { position: absolute; top: -6px; right: -6px; background: var(--accent); color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; }
+  .user-info { font-size: 12px; color: var(--muted); }
+  
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  
+  /* Search */
+  .search-row { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+  .search-row input, .search-row select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 8px; font-size: 14px; }
+  .search-row input { flex: 1; min-width: 180px; }
+  .search-row button { background: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+  .search-row button:hover { background: var(--accent-hover); }
+  
+  /* Product Grid */
+  .products { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  .product-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+  .product-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .product-card .cat { color: var(--accent); font-size: 11px; text-transform: uppercase; font-weight: 600; letter-spacing: 1px; }
+  .product-card h3 { font-size: 15px; margin: 6px 0; }
+  .product-card .price { font-size: 22px; font-weight: 700; }
+  .product-card .meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .product-card .rating { color: var(--accent); }
+  .empty-state { text-align: center; color: var(--muted); padding: 60px 20px; }
+  .loading { text-align: center; color: var(--muted); padding: 40px; }
+  .loading::after { content: ''; display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; margin-left: 8px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  
+  /* Modal */
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 100; animation: fadeIn 0.15s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; max-width: 500px; width: 90%; max-height: 85vh; overflow-y: auto; animation: slideUp 0.2s; }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal h2 { font-size: 20px; margin-bottom: 16px; }
+  .modal-close { float: right; background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; }
+  .modal-close:hover { color: var(--text); }
+  
+  /* Forms */
+  .form-group { margin: 12px 0; }
+  .form-group label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group input, .form-group select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: 8px; font-size: 14px; }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
+  .form-error { color: var(--error); font-size: 12px; margin-top: 4px; }
+  .btn-primary { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 16px; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  
+  /* Cart */
+  .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .cart-item:last-child { border-bottom: none; }
+  .cart-item .item-info h4 { font-size: 14px; }
+  .cart-item .item-info .item-price { color: var(--muted); font-size: 13px; }
+  .cart-item .item-actions { display: flex; gap: 8px; align-items: center; }
+  .cart-item .qty-btn { background: var(--bg); border: 1px solid var(--border); color: var(--text); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  .cart-total { border-top: 2px solid var(--border); padding-top: 16px; margin-top: 12px; text-align: right; }
+  .cart-total .total-amount { font-size: 24px; font-weight: 700; color: var(--accent); }
+  
+  /* Checkout */
+  .checkout-section { margin-bottom: 20px; }
+  .checkout-section h3 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .form-row { display: flex; gap: 12px; }
+  .form-row .form-group { flex: 1; }
+  
+  /* Toast */
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; z-index: 200; animation: slideIn 0.3s; }
+  .toast.error { background: var(--error); }
+  @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  
+  /* Auth page */
+  .auth-page { display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 60px); }
+  .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 36px; width: 380px; }
+  .auth-card h2 { text-align: center; margin-bottom: 24px; }
+  .auth-tabs { display: flex; gap: 0; margin-bottom: 24px; }
+  .auth-tabs button { flex: 1; padding: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); cursor: pointer; font-size: 14px; }
+  .auth-tabs button:first-child { border-radius: 8px 0 0 8px; }
+  .auth-tabs button:last-child { border-radius: 0 8px 8px 0; }
+  .auth-tabs button.active { background: var(--accent); color: white; border-color: var(--accent); }
+  
+  /* Order confirmation */
+  .order-success { text-align: center; padding: 40px 20px; }
+  .order-success .check { font-size: 48px; color: var(--success); margin-bottom: 16px; }
+  .order-success h2 { margin-bottom: 8px; }
+  .order-success .order-id { color: var(--accent); font-family: monospace; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<!-- SPA mount point — completely empty. No content until JS runs. -->
+<!-- This is what makes it a Level 3 challenge for the compiler:
+     a traditional scraper sees NOTHING here. -->
+<div id="root">
+  <div class="app-loading">Loading SubwayShop...</div>
+</div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// ── API Client (all data comes from AJAX) ──
+const API = '/api';
+
+async function api(path, options = {}) {
+  const token = localStorage.getItem('subway_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  
+  const resp = await fetch(API + path, { ...options, headers });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.detail || `HTTP ${resp.status}`);
+  return data;
+}
+
+// ── Toast Component ──
+function Toast({ message, type, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, []);
+  return <div className={`toast ${type === 'error' ? 'error' : ''}`}>{message}</div>;
+}
+
+// ── Auth Page (SPA Route: /auth) ──
+function AuthPage({ onLogin }) {
+  const [tab, setTab] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  const validate = () => {
+    const e = {};
+    if (!email.includes('@')) e.email = 'Valid email required';
+    if (password.length < 6) e.password = 'Min 6 characters';
+    if (tab === 'register' && !name.trim()) e.name = 'Name required';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const submit = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      const endpoint = tab === 'login' ? '/auth/login' : '/auth/register';
+      const body = tab === 'login' ? { email, password } : { email, password, name };
+      const data = await api(endpoint, { method: 'POST', body: JSON.stringify(body) });
+      localStorage.setItem('subway_token', data.token);
+      localStorage.setItem('subway_user', JSON.stringify({ id: data.user_id, name: data.name, email: data.email }));
+      onLogin(data);
+    } catch (err) {
+      setErrors({ submit: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-page">
+      <div className="auth-card">
+        <h2><span style={{color: 'var(--accent)'}}>Subway</span>Shop</h2>
+        <div className="auth-tabs">
+          <button className={tab === 'login' ? 'active' : ''} onClick={() => setTab('login')}>Login</button>
+          <button className={tab === 'register' ? 'active' : ''} onClick={() => setTab('register')}>Register</button>
+        </div>
+        {tab === 'register' && (
+          <div className="form-group">
+            <label>Full Name</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="Jane Doe" />
+            {errors.name && <div className="form-error">{errors.name}</div>}
+          </div>
+        )}
+        <div className="form-group">
+          <label>Email</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+          {errors.email && <div className="form-error">{errors.email}</div>}
+        </div>
+        <div className="form-group">
+          <label>Password</label>
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••" onKeyDown={e => e.key === 'Enter' && submit()} />
+          {errors.password && <div className="form-error">{errors.password}</div>}
+        </div>
+        {errors.submit && <div className="form-error" style={{marginTop:8}}>{errors.submit}</div>}
+        <button className="btn-primary" onClick={submit} disabled={loading}>
+          {loading ? 'Please wait...' : (tab === 'login' ? 'Login' : 'Create Account')}
+        </button>
+        <p style={{textAlign:'center', marginTop:16, fontSize:12, color:'var(--muted)'}}>
+          Test: alice@example.com / password123
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Product Detail Modal ──
+function ProductModal({ product, onClose, onAddToCart }) {
+  const [qty, setQty] = useState(1);
+  const [adding, setAdding] = useState(false);
+  
+  if (!product) return null;
+  
+  const handleAdd = async () => {
+    setAdding(true);
+    await onAddToCart(product.id, qty);
+    setAdding(false);
+    onClose();
+  };
+  
+  const stars = '★'.repeat(Math.round(product.rating)) + '☆'.repeat(5 - Math.round(product.rating));
+  
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>×</button>
+        <div className="cat" style={{color:'var(--accent)',fontSize:11,textTransform:'uppercase',fontWeight:600}}>{product.category}</div>
+        <h2>{product.name}</h2>
+        <p style={{color:'var(--muted)', margin:'8px 0'}}>{product.description}</p>
+        <div style={{fontSize:28, fontWeight:700, margin:'12px 0'}}>${product.price}</div>
+        <div style={{fontSize:13, color:'var(--muted)'}}>
+          <span className="rating" style={{color:'var(--accent)'}}>{stars}</span> {product.rating} ({product.review_count} reviews)
+        </div>
+        <div style={{fontSize:13, color: product.stock_status === 'in_stock' ? 'var(--success)' : 'var(--error)', marginTop:4}}>
+          {product.stock_status === 'in_stock' ? 'In Stock' : product.stock_status === 'low_stock' ? 'Low Stock' : 'Out of Stock'}
+        </div>
+        <div className="form-group" style={{marginTop:16}}>
+          <label>Quantity</label>
+          <select value={qty} onChange={e => setQty(Number(e.target.value))}>
+            {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <button className="btn-primary" onClick={handleAdd} disabled={adding || product.stock_status === 'out_of_stock'}>
+          {adding ? 'Adding...' : `Add to Cart — $${(product.price * qty).toFixed(2)}`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Cart Modal ──
+function CartModal({ cart, onClose, onUpdateQty, onRemove, onCheckout }) {
+  if (!cart) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>×</button>
+        <h2>Shopping Cart</h2>
+        {(!cart.items_detail || cart.items_detail.length === 0) ? (
+          <p style={{color:'var(--muted)', textAlign:'center', padding:20}}>Cart is empty</p>
+        ) : (
+          <>
+            {cart.items_detail.map(item => (
+              <div className="cart-item" key={item.product_id}>
+                <div className="item-info">
+                  <h4>{item.name}</h4>
+                  <div className="item-price">${item.price} × {item.quantity} = ${item.line_total}</div>
+                </div>
+                <div className="item-actions">
+                  <button className="qty-btn" onClick={() => onUpdateQty(item.product_id, item.quantity - 1)}>−</button>
+                  <span>{item.quantity}</span>
+                  <button className="qty-btn" onClick={() => onUpdateQty(item.product_id, item.quantity + 1)}>+</button>
+                  <button className="qty-btn" onClick={() => onRemove(item.product_id)} style={{color:'var(--error)'}}>×</button>
+                </div>
+              </div>
+            ))}
+            <div className="cart-total">
+              <div style={{fontSize:13, color:'var(--muted)'}}>Subtotal: ${cart.subtotal} + Tax: ${cart.tax}</div>
+              <div className="total-amount">${cart.total}</div>
+            </div>
+            <button className="btn-primary" onClick={onCheckout}>Proceed to Checkout</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Checkout Modal ──
+function CheckoutModal({ cart, onClose, onPlaceOrder }) {
+  const [form, setForm] = useState({ name: '', address: '', city: '', zip: '', card: '' });
+  const [errors, setErrors] = useState({});
+  const [placing, setPlacing] = useState(false);
+
+  const validate = () => {
+    const e = {};
+    if (!form.name.trim()) e.name = 'Required';
+    if (!form.address.trim()) e.address = 'Required';
+    if (!form.city.trim()) e.city = 'Required';
+    if (!form.zip.trim()) e.zip = 'Required';
+    if (!/^\d{4}$/.test(form.card)) e.card = 'Last 4 digits';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const submit = async () => {
+    if (!validate()) return;
+    setPlacing(true);
+    await onPlaceOrder(form);
+    setPlacing(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>×</button>
+        <h2>Checkout — ${cart?.total}</h2>
+        <div className="checkout-section">
+          <h3>Shipping</h3>
+          <div className="form-group"><label>Full Name</label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} />{errors.name && <div className="form-error">{errors.name}</div>}</div>
+          <div className="form-group"><label>Address</label><input value={form.address} onChange={e => setForm({...form, address: e.target.value})} />{errors.address && <div className="form-error">{errors.address}</div>}</div>
+          <div className="form-row">
+            <div className="form-group"><label>City</label><input value={form.city} onChange={e => setForm({...form, city: e.target.value})} />{errors.city && <div className="form-error">{errors.city}</div>}</div>
+            <div className="form-group"><label>ZIP</label><input value={form.zip} onChange={e => setForm({...form, zip: e.target.value})} />{errors.zip && <div className="form-error">{errors.zip}</div>}</div>
+          </div>
+        </div>
+        <div className="checkout-section">
+          <h3>Payment</h3>
+          <div className="form-group"><label>Card Last 4 Digits</label><input value={form.card} onChange={e => setForm({...form, card: e.target.value})} maxLength={4} placeholder="4242" />{errors.card && <div className="form-error">{errors.card}</div>}</div>
+        </div>
+        <button className="btn-primary" onClick={submit} disabled={placing}>
+          {placing ? 'Processing...' : `Place Order — $${cart?.total}`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main App ──
+function App() {
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('subway_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [route, setRoute] = useState(user ? 'shop' : 'auth');
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState({ q: '', category: '', sort: 'relevance' });
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [cart, setCart] = useState(null);
+  const [cartId, setCartId] = useState(null);
+  const [showCart, setShowCart] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [order, setOrder] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
+
+  // Async product loading
+  const loadProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      let url = '/products?';
+      if (search.q) url += `q=${encodeURIComponent(search.q)}&`;
+      if (search.category) url += `category=${search.category}&`;
+      if (search.sort) url += `sort_by=${search.sort}&`;
+      const data = await api(url);
+      setProducts(data.products || []);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [search]);
+
+  useEffect(() => { if (route === 'shop') loadProducts(); }, [route, loadProducts]);
+
+  // Cart operations
+  const ensureCart = async () => {
+    if (cartId) return cartId;
+    const data = await api('/cart', { method: 'POST', body: '{}' });
+    const id = data.cart.id;
+    setCartId(id);
+    return id;
+  };
+
+  const refreshCart = async (cid) => {
+    const data = await api(`/cart/${cid}`);
+    setCart(data);
+  };
+
+  const addToCart = async (productId, quantity) => {
+    try {
+      const cid = await ensureCart();
+      await api(`/cart/${cid}/add`, { method: 'POST', body: JSON.stringify({ product_id: productId, quantity }) });
+      await refreshCart(cid);
+      showToast('Added to cart!');
+    } catch (err) { showToast(err.message, 'error'); }
+  };
+
+  const updateQty = async (productId, quantity) => {
+    if (quantity <= 0) { removeItem(productId); return; }
+    try {
+      await api(`/cart/${cartId}/update`, { method: 'POST', body: JSON.stringify({ product_id: productId, quantity }) });
+      await refreshCart(cartId);
+    } catch (err) { showToast(err.message, 'error'); }
+  };
+
+  const removeItem = async (productId) => {
+    try {
+      await api(`/cart/${cartId}/remove`, { method: 'POST', body: JSON.stringify({ product_id: productId }) });
+      await refreshCart(cartId);
+    } catch (err) { showToast(err.message, 'error'); }
+  };
+
+  const placeOrder = async (form) => {
+    try {
+      const data = await api('/checkout', { method: 'POST', body: JSON.stringify({
+        cart_id: cartId,
+        shipping: { name: form.name, address: form.address, city: form.city, zip_code: form.zip },
+        payment: { card_last_four: form.card, card_type: 'visa' }
+      })});
+      setOrder(data.order);
+      setShowCheckout(false);
+      setShowCart(false);
+      setCart(null);
+      setCartId(null);
+      setRoute('confirmation');
+    } catch (err) { showToast(err.message, 'error'); }
+  };
+
+  const handleLogin = (data) => {
+    setUser({ id: data.user_id, name: data.name, email: data.email });
+    setRoute('shop');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('subway_token');
+    localStorage.removeItem('subway_user');
+    setUser(null);
+    setCart(null);
+    setCartId(null);
+    setRoute('auth');
+  };
+
+  const cartCount = cart?.items_detail?.length || 0;
+
+  // ── Render by route ──
+  if (route === 'auth') {
+    return <><Header user={null} /><AuthPage onLogin={handleLogin} /></>;
+  }
+
+  if (route === 'confirmation' && order) {
+    return (
+      <>
+        <Header user={user} onLogout={handleLogout} cartCount={0} onCartClick={() => {}} />
+        <div className="container">
+          <div className="order-success">
+            <div className="check">✓</div>
+            <h2>Order Confirmed!</h2>
+            <div className="order-id">{order.id}</div>
+            <p style={{color:'var(--muted)', marginTop:8}}>Total: ${order.total} — Status: {order.status}</p>
+            <button className="btn-primary" style={{maxWidth:200, margin:'20px auto'}} onClick={() => { setOrder(null); setRoute('shop'); }}>
+              Continue Shopping
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Header user={user} onLogout={handleLogout} cartCount={cartCount} onCartClick={() => { if (cartId) refreshCart(cartId); setShowCart(true); }} />
+      <div className="container">
+        <div className="search-row">
+          <input placeholder="Search products..." value={search.q} onChange={e => setSearch({...search, q: e.target.value})} onKeyDown={e => e.key === 'Enter' && loadProducts()} />
+          <select value={search.category} onChange={e => setSearch({...search, category: e.target.value})}>
+            <option value="">All Categories</option>
+            <option value="electronics">Electronics</option>
+            <option value="clothing">Clothing</option>
+            <option value="books">Books</option>
+            <option value="home">Home</option>
+            <option value="sports">Sports</option>
+          </select>
+          <select value={search.sort} onChange={e => setSearch({...search, sort: e.target.value})}>
+            <option value="relevance">Relevance</option>
+            <option value="price_asc">Price: Low → High</option>
+            <option value="price_desc">Price: High → Low</option>
+            <option value="rating">Top Rated</option>
+          </select>
+          <button onClick={loadProducts}>Search</button>
+        </div>
+
+        {loading ? (
+          <div className="loading">Loading products</div>
+        ) : products.length === 0 ? (
+          <div className="empty-state">No products found</div>
+        ) : (
+          <div className="products">
+            {products.map(p => (
+              <div className="product-card" key={p.id} onClick={() => setSelectedProduct(p)}>
+                <div className="cat">{p.category}</div>
+                <h3>{p.name}</h3>
+                <div className="price">${p.price}</div>
+                <div className="meta">
+                  <span className="rating">{'★'.repeat(Math.round(p.rating))}</span> {p.rating}
+                  <span style={{marginLeft:8}}>{p.stock_status === 'in_stock' ? '● In Stock' : '○ Low'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {selectedProduct && <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={addToCart} />}
+      {showCart && <CartModal cart={cart} onClose={() => setShowCart(false)} onUpdateQty={updateQty} onRemove={removeItem} onCheckout={() => { setShowCart(false); setShowCheckout(true); }} />}
+      {showCheckout && <CheckoutModal cart={cart} onClose={() => setShowCheckout(false)} onPlaceOrder={placeOrder} />}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+    </>
+  );
+}
+
+function Header({ user, onLogout, cartCount, onCartClick }) {
+  return (
+    <header className="header">
+      <h1><span>Subway</span>Shop</h1>
+      <div className="header-actions">
+        {user ? (
+          <>
+            <span className="user-info">{user.name}</span>
+            <button className="cart-btn" onClick={onCartClick}>
+              Cart {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+            </button>
+            <button onClick={onLogout}>Logout</button>
+          </>
+        ) : (
+          <span className="user-info">Not logged in</span>
+        )}
+      </div>
+    </header>
+  );
+}
+
+// ── Mount the SPA ──
+// This is the ONLY DOM manipulation. Everything above is virtual.
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>

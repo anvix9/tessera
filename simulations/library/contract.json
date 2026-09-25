@@ -1,0 +1,594 @@
+{
+  "contract_id": "subway_gov_v2_auth",
+  "version": "0.2.0",
+  "site_name": "SubwayGov Document Library & Services (with Auth)",
+  "site_url": "http://localhost:8004",
+  "description": "Government document library and service portal with authentication. Document browsing is public. Submitting requests requires login. Test accounts: alice@example.com/password123, bob@example.com/securepass",
+  "tier": "standard",
+  "created_at": "2026-04-14T17:17:17.309003",
+  "expires_at": null,
+  "screens": [
+    {
+      "id": "auth_gate",
+      "name": "Authentication",
+      "description": "Login or register to access government services. Document browsing is available without login. Submitting requests requires authentication. Test accounts: alice@example.com/password123, bob@example.com/securepass",
+      "parameters": [],
+      "data_fields": [
+        {
+          "name": "logged_in",
+          "type": "bool",
+          "description": "Whether logged in",
+          "example": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "login",
+          "name": "Login",
+          "description": "Login with email and password.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "email",
+              "type": "string",
+              "required": true,
+              "description": "Email",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "password",
+              "type": "string",
+              "required": true,
+              "description": "Password",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": "document_search",
+          "api_endpoint": "/api/auth/login",
+          "api_method": "POST"
+        },
+        {
+          "id": "register",
+          "name": "Register",
+          "description": "Create a new account.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "email",
+              "type": "string",
+              "required": true,
+              "description": "Email",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "password",
+              "type": "string",
+              "required": true,
+              "description": "Password",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "required": true,
+              "description": "Full name",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": "document_search",
+          "api_endpoint": "/api/auth/register",
+          "api_method": "POST"
+        },
+        {
+          "id": "browse_without_login",
+          "name": "Browse without login",
+          "description": "Browse documents without logging in. Cannot submit service requests.",
+          "permission": "allowed",
+          "parameters": [],
+          "preconditions": [],
+          "transitions_to": "document_search",
+          "api_endpoint": null,
+          "api_method": null
+        }
+      ],
+      "parent": null
+    },
+    {
+      "id": "document_search",
+      "name": "Document search",
+      "description": "Search government documents, permits, certificates, forms, and guides.",
+      "parameters": [],
+      "data_fields": [
+        {
+          "name": "documents",
+          "type": "list",
+          "description": "List of matching documents",
+          "example": null
+        },
+        {
+          "name": "total",
+          "type": "int",
+          "description": "Total results",
+          "example": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "search_documents",
+          "name": "Search documents",
+          "description": "Search the document catalog by keyword, category, or department.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "q",
+              "type": "string",
+              "required": false,
+              "description": "Search keyword",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "category",
+              "type": "enum",
+              "required": false,
+              "description": "Document category",
+              "enum_values": [
+                "permits",
+                "certificates",
+                "forms",
+                "guides",
+                "regulations"
+              ],
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "department",
+              "type": "enum",
+              "required": false,
+              "description": "Government department",
+              "enum_values": [
+                "building_department",
+                "health_department",
+                "business_licensing",
+                "vital_records",
+                "transportation"
+              ],
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "has_fee",
+              "type": "bool",
+              "required": false,
+              "description": "Filter by whether document has a fee",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": "document_search",
+          "api_endpoint": "/api/documents",
+          "api_method": "GET"
+        },
+        {
+          "id": "view_document",
+          "name": "View document details",
+          "description": "View full details of a document including requirements and fees.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "doc_id",
+              "type": "string",
+              "required": true,
+              "description": "Document ID to view",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": "document_detail",
+          "api_endpoint": "/api/documents/{doc_id}",
+          "api_method": "GET"
+        },
+        {
+          "id": "view_departments",
+          "name": "View departments",
+          "description": "List all departments with their services and queue status.",
+          "permission": "allowed",
+          "parameters": [],
+          "preconditions": [],
+          "transitions_to": "department_list",
+          "api_endpoint": "/api/departments",
+          "api_method": "GET"
+        },
+        {
+          "id": "track_request",
+          "name": "Track a request",
+          "description": "Check the status of an existing service request by ID.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "req_id",
+              "type": "string",
+              "required": true,
+              "description": "Request ID to track",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": "request_status",
+          "api_endpoint": "/api/requests/{req_id}",
+          "api_method": "GET"
+        }
+      ],
+      "parent": null
+    },
+    {
+      "id": "document_detail",
+      "name": "Document detail",
+      "description": "Full document info with requirements, fees, and processing times.",
+      "parameters": [
+        "doc_id"
+      ],
+      "data_fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "description": "Document title",
+          "example": null
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "description": "Category",
+          "example": null
+        },
+        {
+          "name": "department",
+          "type": "string",
+          "description": "Responsible department",
+          "example": null
+        },
+        {
+          "name": "content_summary",
+          "type": "string",
+          "description": "Detailed summary",
+          "example": null
+        },
+        {
+          "name": "requirements",
+          "type": "list",
+          "description": "List of requirements",
+          "example": null
+        },
+        {
+          "name": "fee",
+          "type": "float",
+          "description": "Fee amount (0 if free)",
+          "example": null
+        },
+        {
+          "name": "processing_days",
+          "type": "int",
+          "description": "Processing time in business days",
+          "example": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "submit_request",
+          "name": "Submit a service request",
+          "description": "Start a request related to this document (permit application, certificate request, etc.).",
+          "permission": "requires_confirmation",
+          "parameters": [
+            {
+              "name": "request_type",
+              "type": "enum",
+              "required": true,
+              "description": "Type of request",
+              "enum_values": [
+                "permit_application",
+                "certificate_request",
+                "form_submission",
+                "information_request"
+              ],
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "document_id",
+              "type": "string",
+              "required": false,
+              "description": "Related document ID",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "department",
+              "type": "string",
+              "required": true,
+              "description": "Department to submit to",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "applicant_name",
+              "type": "string",
+              "required": true,
+              "description": "Full name of applicant",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "applicant_email",
+              "type": "string",
+              "required": true,
+              "description": "Email address",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "applicant_phone",
+              "type": "string",
+              "required": false,
+              "description": "Phone number",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "details",
+              "type": "string",
+              "required": false,
+              "description": "Additional details about the request",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": "request_status",
+          "api_endpoint": "/api/requests",
+          "api_method": "POST"
+        },
+        {
+          "id": "back_to_search",
+          "name": "Back to search",
+          "description": "Return to document search.",
+          "permission": "allowed",
+          "parameters": [],
+          "preconditions": [],
+          "transitions_to": "document_search",
+          "api_endpoint": null,
+          "api_method": null
+        }
+      ],
+      "parent": "document_search"
+    },
+    {
+      "id": "department_list",
+      "name": "Department list",
+      "description": "All government departments with document counts and queue status.",
+      "parameters": [],
+      "data_fields": [
+        {
+          "name": "departments",
+          "type": "list",
+          "description": "Departments with name, document count, pending requests, queue length",
+          "example": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "search_by_department",
+          "name": "Search documents by department",
+          "description": "View all documents from a specific department.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "department",
+              "type": "enum",
+              "required": true,
+              "description": "Department to filter by",
+              "enum_values": [
+                "building_department",
+                "health_department",
+                "business_licensing",
+                "vital_records",
+                "transportation"
+              ],
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": "document_search",
+          "api_endpoint": "/api/documents",
+          "api_method": "GET"
+        },
+        {
+          "id": "back_to_search_from_depts",
+          "name": "Back to search",
+          "description": "Return to document search.",
+          "permission": "allowed",
+          "parameters": [],
+          "preconditions": [],
+          "transitions_to": "document_search",
+          "api_endpoint": null,
+          "api_method": null
+        }
+      ],
+      "parent": null
+    },
+    {
+      "id": "request_status",
+      "name": "Request status",
+      "description": "Status and details of a service request.",
+      "parameters": [],
+      "data_fields": [
+        {
+          "name": "request_id",
+          "type": "string",
+          "description": "Request ID",
+          "example": null
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "description": "Current status",
+          "example": null
+        },
+        {
+          "name": "queue_position",
+          "type": "int",
+          "description": "Position in processing queue",
+          "example": null
+        },
+        {
+          "name": "estimated_completion",
+          "type": "string",
+          "description": "Estimated completion date",
+          "example": null
+        },
+        {
+          "name": "fee_paid",
+          "type": "float",
+          "description": "Fee amount",
+          "example": null
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "description": "Status message",
+          "example": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "check_requirements",
+          "name": "Check requirements",
+          "description": "View the requirements checklist for this request.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "req_id",
+              "type": "string",
+              "required": true,
+              "description": "Request ID",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": "request_status",
+          "api_endpoint": "/api/requests/{req_id}/requirements",
+          "api_method": "GET"
+        },
+        {
+          "id": "new_search",
+          "name": "New search",
+          "description": "Start a new document search.",
+          "permission": "allowed",
+          "parameters": [],
+          "preconditions": [],
+          "transitions_to": "document_search",
+          "api_endpoint": null,
+          "api_method": null
+        }
+      ],
+      "parent": null
+    }
+  ],
+  "entry_screen": "auth_gate",
+  "rate_limits": {
+    "requests_per_minute": 30,
+    "requests_per_hour": 500,
+    "requests_per_day": 5000,
+    "max_concurrent_sessions": 1,
+    "max_items_per_action": null
+  },
+  "data_terms": {
+    "default_retention": "session",
+    "field_overrides": {
+      "applicant_email": "none",
+      "applicant_phone": "none",
+      "applicant_address": "none"
+    },
+    "allow_aggregation": false,
+    "allow_storage": false,
+    "require_attribution": false,
+    "attribution_text": null
+  },
+  "prohibited_actions": [
+    "bulk_scrape",
+    "access_admin",
+    "modify_records"
+  ],
+  "required_confirmations": [
+    "submit_request"
+  ],
+  "action_trust_requirements": [
+    {
+      "action_id": "submit_request",
+      "min_trust_level": "verified",
+      "requires_user_delegation": false,
+      "max_amount": null
+    }
+  ],
+  "default_trust_for_actions": "identified",
+  "trust_overrides": {},
+  "require_identification": true,
+  "allowed_purposes": [
+    "document_search",
+    "permit_application",
+    "research",
+    "information",
+    "purchase"
+  ],
+  "blocked_providers": [],
+  "log_all_actions": true,
+  "log_data_access": true
+}

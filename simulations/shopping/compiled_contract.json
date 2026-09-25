@@ -1,0 +1,580 @@
+{
+  "contract_id": "subway_subway_shopping_simulation_auto",
+  "version": "0.1.0",
+  "site_name": "Subway Shopping Simulation",
+  "site_url": "http://127.0.0.1:8000",
+  "description": "Auto-generated Subway contract for Subway Shopping Simulation. Review and refine before production use.",
+  "tier": "standard",
+  "created_at": "2026-04-13T22:42:11.753591",
+  "expires_at": null,
+  "screens": [
+    {
+      "id": "products_list",
+      "name": "Products list",
+      "description": "Search and filter products.",
+      "parameters": [],
+      "data_fields": [
+        {
+          "name": "products",
+          "type": "list",
+          "description": "Products",
+          "example": null
+        },
+        {
+          "name": "total",
+          "type": "integer",
+          "description": "Total",
+          "example": null
+        },
+        {
+          "name": "page",
+          "type": "integer",
+          "description": "Page",
+          "example": null
+        },
+        {
+          "name": "per_page",
+          "type": "integer",
+          "description": "Per Page",
+          "example": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "search_products",
+          "name": "Search Products",
+          "description": "Search and filter products.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "q",
+              "type": "string",
+              "required": false,
+              "description": "Search query",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "category",
+              "type": "string",
+              "required": false,
+              "description": "Filter by category",
+              "enum_values": [
+                "electronics",
+                "clothing",
+                "books",
+                "home",
+                "sports"
+              ],
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "min_price",
+              "type": "float",
+              "required": false,
+              "description": "Minimum price",
+              "enum_values": null,
+              "min_value": 0.0,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "max_price",
+              "type": "float",
+              "required": false,
+              "description": "Maximum price",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "sort_by",
+              "type": "string",
+              "required": false,
+              "description": "Sort: relevance, price_asc, price_desc, rating",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": "relevance"
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": null,
+          "api_endpoint": "/api/products",
+          "api_method": "GET"
+        },
+        {
+          "id": "view_product",
+          "name": "View product detail",
+          "description": "Get a single product by ID.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "product_id",
+              "type": "string",
+              "required": true,
+              "description": "Product ID",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": "product_detail",
+          "api_endpoint": "/api/products/{product_id}",
+          "api_method": "GET"
+        }
+      ],
+      "parent": null
+    },
+    {
+      "id": "product_detail",
+      "name": "Product detail",
+      "description": "Get a single product by ID.",
+      "parameters": [
+        "product_id"
+      ],
+      "data_fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Id",
+          "example": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "description": "Name",
+          "example": null
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "description": "Description",
+          "example": null
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "description": "Price",
+          "example": null
+        },
+        {
+          "name": "category",
+          "type": "object",
+          "description": "",
+          "example": null
+        },
+        {
+          "name": "rating",
+          "type": "number",
+          "description": "Rating",
+          "example": null
+        },
+        {
+          "name": "review_count",
+          "type": "integer",
+          "description": "Review Count",
+          "example": null
+        },
+        {
+          "name": "stock_status",
+          "type": "object",
+          "description": "",
+          "example": null
+        },
+        {
+          "name": "stock_quantity",
+          "type": "integer",
+          "description": "Stock Quantity",
+          "example": null
+        },
+        {
+          "name": "image_url",
+          "type": "string",
+          "description": "Image Url",
+          "example": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "back_to_products_list",
+          "name": "Back to products list",
+          "description": "Return to products list",
+          "permission": "allowed",
+          "parameters": [],
+          "preconditions": [],
+          "transitions_to": "products_list",
+          "api_endpoint": null,
+          "api_method": null
+        }
+      ],
+      "parent": "products_list"
+    },
+    {
+      "id": "cart_detail",
+      "name": "Cart detail",
+      "description": "Get cart contents with item details and totals.",
+      "parameters": [
+        "cart_id"
+      ],
+      "data_fields": [
+        {
+          "name": "cart",
+          "type": "object",
+          "description": "",
+          "example": null
+        },
+        {
+          "name": "items_detail",
+          "type": "list",
+          "description": "Items Detail",
+          "example": null
+        },
+        {
+          "name": "subtotal",
+          "type": "number",
+          "description": "Subtotal",
+          "example": null
+        },
+        {
+          "name": "tax",
+          "type": "number",
+          "description": "Tax",
+          "example": null
+        },
+        {
+          "name": "total",
+          "type": "number",
+          "description": "Total",
+          "example": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "add_to_cart",
+          "name": "Add To Cart",
+          "description": "Add a product to the cart.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "cart_id",
+              "type": "string",
+              "required": true,
+              "description": "",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "product_id",
+              "type": "string",
+              "required": true,
+              "description": "",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "quantity",
+              "type": "int",
+              "required": false,
+              "description": "",
+              "enum_values": null,
+              "min_value": 1.0,
+              "max_value": 10.0,
+              "default": "1"
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": null,
+          "api_endpoint": "/api/cart/{cart_id}/add",
+          "api_method": "POST"
+        },
+        {
+          "id": "update_cart_item",
+          "name": "Update Cart Item",
+          "description": "Update quantity of an item in the cart.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "cart_id",
+              "type": "string",
+              "required": true,
+              "description": "",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "product_id",
+              "type": "string",
+              "required": true,
+              "description": "",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "quantity",
+              "type": "int",
+              "required": true,
+              "description": "",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": null,
+          "api_endpoint": "/api/cart/{cart_id}/update",
+          "api_method": "POST"
+        },
+        {
+          "id": "remove_from_cart",
+          "name": "Remove From Cart",
+          "description": "Remove a product from the cart.",
+          "permission": "allowed",
+          "parameters": [
+            {
+              "name": "cart_id",
+              "type": "string",
+              "required": true,
+              "description": "",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            },
+            {
+              "name": "product_id",
+              "type": "string",
+              "required": true,
+              "description": "",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": null,
+          "api_endpoint": "/api/cart/{cart_id}/remove",
+          "api_method": "POST"
+        }
+      ],
+      "parent": "cart_list"
+    },
+    {
+      "id": "cart",
+      "name": "Cart",
+      "description": "Create a new shopping cart.",
+      "parameters": [],
+      "data_fields": [
+        {
+          "name": "cart",
+          "type": "object",
+          "description": "",
+          "example": null
+        },
+        {
+          "name": "items_detail",
+          "type": "list",
+          "description": "Items Detail",
+          "example": null
+        },
+        {
+          "name": "subtotal",
+          "type": "number",
+          "description": "Subtotal",
+          "example": null
+        },
+        {
+          "name": "tax",
+          "type": "number",
+          "description": "Tax",
+          "example": null
+        },
+        {
+          "name": "total",
+          "type": "number",
+          "description": "Total",
+          "example": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "new_cart",
+          "name": "New Cart",
+          "description": "Create a new shopping cart.",
+          "permission": "allowed",
+          "parameters": [],
+          "preconditions": [],
+          "transitions_to": null,
+          "api_endpoint": "/api/cart",
+          "api_method": "POST"
+        }
+      ],
+      "parent": null
+    },
+    {
+      "id": "checkout",
+      "name": "Checkout",
+      "description": "Place an order from a cart.",
+      "parameters": [],
+      "data_fields": [
+        {
+          "name": "order",
+          "type": "object",
+          "description": "",
+          "example": null
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "description": "Message",
+          "example": null
+        }
+      ],
+      "actions": [
+        {
+          "id": "checkout",
+          "name": "Checkout",
+          "description": "Place an order from a cart.",
+          "permission": "requires_confirmation",
+          "parameters": [
+            {
+              "name": "cart_id",
+              "type": "string",
+              "required": true,
+              "description": "",
+              "enum_values": null,
+              "min_value": null,
+              "max_value": null,
+              "default": null
+            }
+          ],
+          "preconditions": [],
+          "transitions_to": null,
+          "api_endpoint": "/api/checkout",
+          "api_method": "POST"
+        }
+      ],
+      "parent": null
+    },
+    {
+      "id": "order_detail",
+      "name": "Order detail",
+      "description": "Check order status.",
+      "parameters": [
+        "order_id"
+      ],
+      "data_fields": [
+        {
+          "name": "order",
+          "type": "object",
+          "description": "",
+          "example": null
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "description": "Message",
+          "example": null
+        }
+      ],
+      "actions": [],
+      "parent": "orders_list"
+    },
+    {
+      "id": "_list",
+      "name": " list",
+      "description": "Serve the shopping frontend.",
+      "parameters": [],
+      "data_fields": [],
+      "actions": [
+        {
+          "id": "search",
+          "name": "Homepage",
+          "description": "Serve the shopping frontend.",
+          "permission": "allowed",
+          "parameters": [],
+          "preconditions": [],
+          "transitions_to": null,
+          "api_endpoint": "/",
+          "api_method": "GET"
+        }
+      ],
+      "parent": null
+    }
+  ],
+  "entry_screen": "products_list",
+  "rate_limits": {
+    "requests_per_minute": 30,
+    "requests_per_hour": 500,
+    "requests_per_day": 5000,
+    "max_concurrent_sessions": 1,
+    "max_items_per_action": null
+  },
+  "data_terms": {
+    "default_retention": "session",
+    "field_overrides": {},
+    "allow_aggregation": false,
+    "allow_storage": false,
+    "require_attribution": false,
+    "attribution_text": null
+  },
+  "prohibited_actions": [
+    "create_account",
+    "delete_account",
+    "access_admin",
+    "bulk_scrape"
+  ],
+  "required_confirmations": [
+    "checkout"
+  ],
+  "action_trust_requirements": [
+    {
+      "action_id": "add_to_cart",
+      "min_trust_level": "identified",
+      "requires_user_delegation": false,
+      "max_amount": null
+    },
+    {
+      "action_id": "update_cart_item",
+      "min_trust_level": "identified",
+      "requires_user_delegation": false,
+      "max_amount": null
+    },
+    {
+      "action_id": "remove_from_cart",
+      "min_trust_level": "identified",
+      "requires_user_delegation": false,
+      "max_amount": null
+    },
+    {
+      "action_id": "checkout",
+      "min_trust_level": "verified",
+      "requires_user_delegation": false,
+      "max_amount": null
+    }
+  ],
+  "default_trust_for_actions": "identified",
+  "trust_overrides": {},
+  "require_identification": true,
+  "allowed_purposes": [],
+  "blocked_providers": [],
+  "log_all_actions": true,
+  "log_data_access": true
+}

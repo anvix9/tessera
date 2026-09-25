@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Terminal — Restaurant</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  :root { --bg:#faf8f5; --surface:#fff; --border:#e8e0d8; --text:#2c1810; --muted:#8b7355; --accent:#c44b1a; --accent2:#d4763a; --gold:#b8860b; --green:#3a7d44; --radius:10px; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:Georgia,'Times New Roman',serif; background:var(--bg); color:var(--text); }
+  #root {}
+  .nav { background:var(--text); color:var(--bg); padding:14px 24px; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:50; }
+  .nav h1 { font-size:22px; font-style:italic; } .nav h1 span { color:var(--gold); }
+  .nav-links { display:flex; gap:16px; align-items:center; }
+  .nav-links button { background:none; border:1px solid rgba(255,255,255,0.3); color:var(--bg); padding:6px 14px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px; }
+  .nav-links button:hover { border-color:var(--gold); color:var(--gold); }
+  .nav-links .user { font-size:12px; color:var(--gold); }
+  .container { max-width:900px; margin:0 auto; padding:24px; }
+  .hero { text-align:center; padding:40px 20px; border-bottom:1px solid var(--border); margin-bottom:24px; }
+  .hero h2 { font-size:32px; font-style:italic; color:var(--accent); margin-bottom:8px; }
+  .hero p { color:var(--muted); font-size:15px; }
+  .cat-tabs { display:flex; gap:0; margin-bottom:24px; overflow-x:auto; }
+  .cat-tab { padding:10px 20px; background:var(--surface); border:1px solid var(--border); cursor:pointer; font-family:inherit; font-size:13px; color:var(--muted); white-space:nowrap; }
+  .cat-tab:first-child { border-radius:8px 0 0 8px; } .cat-tab:last-child { border-radius:0 8px 8px 0; }
+  .cat-tab.active { background:var(--accent); color:white; border-color:var(--accent); }
+  .menu-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+  .menu-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; cursor:pointer; transition:box-shadow 0.15s; }
+  .menu-card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.08); }
+  .menu-card .emoji { font-size:32px; margin-bottom:8px; }
+  .menu-card h3 { font-size:16px; margin-bottom:4px; }
+  .menu-card .desc { font-size:13px; color:var(--muted); margin-bottom:8px; }
+  .menu-card .price { font-size:20px; font-weight:700; color:var(--accent); }
+  .menu-card .tags { display:flex; gap:4px; margin-top:6px; flex-wrap:wrap; }
+  .menu-card .tag { font-size:10px; padding:2px 6px; border-radius:4px; background:#f0ebe4; color:var(--muted); }
+  .menu-card .tag.popular { background:var(--gold); color:white; }
+  .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; z-index:100; }
+  .modal { background:var(--surface); border-radius:14px; padding:28px; max-width:460px; width:90%; max-height:85vh; overflow-y:auto; }
+  .modal h2 { margin-bottom:16px; } .modal-close { float:right; background:none; border:none; font-size:22px; cursor:pointer; color:var(--muted); }
+  .form-group { margin:10px 0; }
+  .form-group label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px; }
+  .form-group input, .form-group select, .form-group textarea { width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:14px; background:var(--bg); }
+  .form-group textarea { height:60px; resize:vertical; }
+  .form-error { color:#c44; font-size:12px; margin-top:2px; }
+  .btn { padding:12px 24px; border:none; border-radius:8px; cursor:pointer; font-family:inherit; font-size:14px; font-weight:600; }
+  .btn-primary { background:var(--accent); color:white; width:100%; margin-top:14px; }
+  .btn-primary:hover { background:var(--accent2); }
+  .btn-primary:disabled { opacity:0.5; }
+  .slots { display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:6px; margin:12px 0; }
+  .slot { padding:8px; text-align:center; border:1px solid var(--border); border-radius:6px; cursor:pointer; font-size:13px; }
+  .slot.available { background:var(--bg); } .slot.available:hover { border-color:var(--accent); }
+  .slot.taken { background:#f5f0f0; color:#ccc; cursor:not-allowed; }
+  .slot.selected { background:var(--accent); color:white; border-color:var(--accent); }
+  .order-bar { position:fixed; bottom:0; left:0; right:0; background:var(--text); color:white; padding:12px 24px; display:flex; justify-content:space-between; align-items:center; z-index:60; }
+  .order-bar button { background:var(--gold); color:var(--text); border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-weight:600; font-family:inherit; }
+  .success { text-align:center; padding:40px; }
+  .success .icon { font-size:48px; margin-bottom:12px; }
+  .auth-page { display:flex; justify-content:center; align-items:center; min-height:calc(100vh - 52px); }
+  .auth-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:36px; width:360px; }
+  .auth-card h2 { text-align:center; font-style:italic; margin-bottom:20px; }
+  .auth-tabs { display:flex; margin-bottom:20px; }
+  .auth-tabs button { flex:1; padding:10px; border:1px solid var(--border); cursor:pointer; font-family:inherit; background:var(--bg); color:var(--muted); }
+  .auth-tabs button:first-child { border-radius:8px 0 0 8px; } .auth-tabs button:last-child { border-radius:0 8px 8px 0; }
+  .auth-tabs button.active { background:var(--accent); color:white; border-color:var(--accent); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// API helper — all requests go through here
+async function api(path, opts = {}) {
+  const token = localStorage.getItem('lt_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const r = await fetch('/api' + path, { ...opts, headers });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.detail || `Error ${r.status}`);
+  return data;
+}
+
+// ── Auth ──
+function AuthPage({ onLogin }) {
+  const [tab, setTab] = useState('login');
+  const [form, setForm] = useState({ email:'', password:'', name:'', phone:'' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    setError(''); setLoading(true);
+    try {
+      const endpoint = tab === 'login' ? '/auth/login' : '/auth/register';
+      const body = tab === 'login' ? { email:form.email, password:form.password } : form;
+      const data = await api(endpoint, { method:'POST', body:JSON.stringify(body) });
+      localStorage.setItem('lt_token', data.token);
+      localStorage.setItem('lt_user', JSON.stringify({ id:data.user_id, name:data.name, email:data.email }));
+      onLogin(data);
+    } catch(e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="auth-page">
+      <div className="auth-card">
+        <h2>🍽️ <span style={{color:'var(--accent)'}}>La Terminal</span></h2>
+        <div className="auth-tabs">
+          <button className={tab==='login'?'active':''} onClick={()=>setTab('login')}>Login</button>
+          <button className={tab==='register'?'active':''} onClick={()=>setTab('register')}>Register</button>
+        </div>
+        {tab==='register' && <>
+          <div className="form-group"><label>Name</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} /></div>
+          <div className="form-group"><label>Phone</label><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} /></div>
+        </>}
+        <div className="form-group"><label>Email</label><input value={form.email} onChange={e=>setForm({...form,email:e.target.value})} /></div>
+        <div className="form-group"><label>Password</label><input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} onKeyDown={e=>e.key==='Enter'&&submit()} /></div>
+        {error && <div className="form-error">{error}</div>}
+        <button className="btn btn-primary" onClick={submit} disabled={loading}>{loading?'...':tab==='login'?'Login':'Create Account'}</button>
+        <p style={{textAlign:'center',marginTop:12,fontSize:11,color:'var(--muted)'}}>Test: maria@email.com / dinner123</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Reservation Modal ──
+function ReservationModal({ user, onClose, onSuccess }) {
+  const [date, setDate] = useState(() => { const d = new Date(); d.setDate(d.getDate()+1); return d.toISOString().split('T')[0]; });
+  const [slots, setSlots] = useState([]);
+  const [selectedTime, setSelectedTime] = useState('');
+  const [form, setForm] = useState({ party_size:2, name:user?.name||'', phone:'', special_requests:'' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => { loadSlots(); }, [date, form.party_size]);
+  const loadSlots = async () => {
+    try { const d = await api(`/availability?date=${date}&party_size=${form.party_size}`); setSlots(d.slots||[]); }
+    catch(e) { console.error(e); }
+  };
+  const submit = async () => {
+    if (!selectedTime) { setError('Select a time'); return; }
+    setLoading(true); setError('');
+    try {
+      const data = await api('/reservations', { method:'POST', body:JSON.stringify({ date, time:selectedTime, ...form }) });
+      onSuccess(data);
+    } catch(e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
+      <button className="modal-close" onClick={onClose}>×</button>
+      <h2>Reserve a Table</h2>
+      <div className="form-group"><label>Date</label><input type="date" value={date} onChange={e=>setDate(e.target.value)} /></div>
+      <div className="form-group"><label>Party Size</label>
+        <select value={form.party_size} onChange={e=>setForm({...form,party_size:Number(e.target.value)})}>
+          {[1,2,3,4,5,6,7,8].map(n=><option key={n}>{n}</option>)}
+        </select>
+      </div>
+      <label style={{fontSize:12,color:'var(--muted)',textTransform:'uppercase'}}>Available Times</label>
+      <div className="slots">
+        {slots.map(s => <div key={s.time} className={`slot ${s.available?'available':'taken'} ${selectedTime===s.time?'selected':''}`}
+          onClick={()=>s.available&&setSelectedTime(s.time)}>{s.time}</div>)}
+      </div>
+      <div className="form-group"><label>Name</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} /></div>
+      <div className="form-group"><label>Phone</label><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} /></div>
+      <div className="form-group"><label>Special Requests</label><textarea value={form.special_requests} onChange={e=>setForm({...form,special_requests:e.target.value})} placeholder="Allergies, birthday, seating preference..." /></div>
+      {error && <div className="form-error">{error}</div>}
+      <button className="btn btn-primary" onClick={submit} disabled={loading}>{loading?'Booking...':'Confirm Reservation'}</button>
+    </div></div>
+  );
+}
+
+// ── Order Modal ──
+function OrderModal({ cart, onClose, onSubmit }) {
+  const [type, setType] = useState('pickup');
+  const [address, setAddress] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const total = cart.reduce((s,i) => s + i.price * i.qty, 0);
+
+  const submit = async () => {
+    if (type==='delivery' && !address.trim()) { setError('Delivery address required'); return; }
+    setLoading(true);
+    try {
+      const items = cart.map(i => ({ menu_item_id:i.id, quantity:i.qty, notes:i.notes||'' }));
+      const data = await api('/orders', { method:'POST', body:JSON.stringify({ items, order_type:type, delivery_address:address }) });
+      onSubmit(data);
+    } catch(e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
+      <button className="modal-close" onClick={onClose}>×</button>
+      <h2>Place Order</h2>
+      {cart.map(i => <div key={i.id} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--border)'}}>
+        <span>{i.emoji} {i.name} ×{i.qty}</span><span>${(i.price*i.qty).toFixed(2)}</span>
+      </div>)}
+      <div style={{textAlign:'right',marginTop:8,fontSize:18,fontWeight:700,color:'var(--accent)'}}>Total: ${total.toFixed(2)} + tax</div>
+      <div className="form-group"><label>Order Type</label>
+        <select value={type} onChange={e=>setType(e.target.value)}><option value="pickup">Pickup</option><option value="delivery">Delivery</option></select>
+      </div>
+      {type==='delivery' && <div className="form-group"><label>Delivery Address</label><input value={address} onChange={e=>setAddress(e.target.value)} /></div>}
+      {error && <div className="form-error">{error}</div>}
+      <button className="btn btn-primary" onClick={submit} disabled={loading}>{loading?'Placing...':'Place Order'}</button>
+    </div></div>
+  );
+}
+
+// ── Main App ──
+function App() {
+  const [user, setUser] = useState(() => { const s=localStorage.getItem('lt_user'); return s?JSON.parse(s):null; });
+  const [page, setPage] = useState(user?'menu':'auth');
+  const [menu, setMenu] = useState([]);
+  const [category, setCategory] = useState('');
+  const [cart, setCart] = useState([]);
+  const [showReserve, setShowReserve] = useState(false);
+  const [showOrder, setShowOrder] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const loadMenu = useCallback(async () => {
+    try {
+      let url = '/menu';
+      if (category) url += `?category=${category}`;
+      const data = await api(url);
+      setMenu(data.items || []);
+    } catch(e) { console.error(e); }
+  }, [category]);
+
+  useEffect(() => { if(page==='menu') loadMenu(); }, [page, loadMenu]);
+
+  const addToCart = (item) => {
+    setCart(prev => {
+      const existing = prev.find(i => i.id === item.id);
+      if (existing) return prev.map(i => i.id===item.id ? {...i, qty:i.qty+1} : i);
+      return [...prev, { id:item.id, name:item.name, price:item.price, emoji:item.image_emoji, qty:1 }];
+    });
+  };
+
+  const handleLogin = (data) => { setUser({id:data.user_id,name:data.name,email:data.email}); setPage('menu'); };
+  const logout = () => { localStorage.removeItem('lt_token'); localStorage.removeItem('lt_user'); setUser(null); setPage('auth'); };
+
+  if (page==='auth') return <><Nav user={null}/><AuthPage onLogin={handleLogin}/></>;
+
+  if (result) return (
+    <><Nav user={user} onLogout={logout} onReserve={()=>{}} onCart={()=>{}}/>
+    <div className="container"><div className="success">
+      <div className="icon">{result.reservation?'🎉':'🎉'}</div>
+      <h2>{result.message}</h2>
+      {result.reservation && <p style={{color:'var(--muted)'}}>Reservation ID: {result.reservation.id}</p>}
+      {result.order && <p style={{color:'var(--muted)'}}>Order ID: {result.order.id} — ${result.order.total}</p>}
+      <button className="btn btn-primary" style={{maxWidth:200,margin:'20px auto'}} onClick={()=>{setResult(null);setCart([]);}}>Back to Menu</button>
+    </div></div></>
+  );
+
+  const categories = ['', 'appetizers', 'mains', 'desserts', 'drinks', 'sides'];
+
+  return (
+    <>
+      <Nav user={user} onLogout={logout} onReserve={()=>setShowReserve(true)} cartCount={cart.reduce((s,i)=>s+i.qty,0)} onCart={()=>cart.length&&setShowOrder(true)} />
+      <div className="container">
+        <div className="hero"><h2>La Terminal</h2><p>Contemporary American · Global Influences · San Francisco</p></div>
+        <div className="cat-tabs">
+          {categories.map(c => <button key={c} className={`cat-tab ${category===c?'active':''}`} onClick={()=>setCategory(c)}>
+            {c || 'All'}
+          </button>)}
+        </div>
+        <div className="menu-grid">
+          {menu.map(item => (
+            <div className="menu-card" key={item.id} onClick={()=>addToCart(item)}>
+              <div className="emoji">{item.image_emoji}</div>
+              <h3>{item.name}</h3>
+              <p className="desc">{item.description}</p>
+              <div className="price">${item.price}</div>
+              <div className="tags">
+                {item.popular && <span className="tag popular">Popular</span>}
+                {item.dietary.map(d => <span className="tag" key={d}>{d.replace('_',' ')}</span>)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {cart.length > 0 && <div className="order-bar">
+        <span>{cart.reduce((s,i)=>s+i.qty,0)} items · ${cart.reduce((s,i)=>s+i.price*i.qty,0).toFixed(2)}</span>
+        <button onClick={()=>setShowOrder(true)}>Place Order →</button>
+      </div>}
+      {showReserve && <ReservationModal user={user} onClose={()=>setShowReserve(false)} onSuccess={d=>{setShowReserve(false);setResult(d);}} />}
+      {showOrder && <OrderModal cart={cart} onClose={()=>setShowOrder(false)} onSubmit={d=>{setShowOrder(false);setResult(d);}} />}
+    </>
+  );
+}
+
+function Nav({ user, onLogout, onReserve, cartCount, onCart }) {
+  return <nav className="nav">
+    <h1>🍽️ <span>La Terminal</span></h1>
+    <div className="nav-links">
+      {user ? <>
+        <span className="user">{user.name}</span>
+        {onReserve && <button onClick={onReserve}>Reserve Table</button>}
+        {onCart && <button onClick={onCart}>Cart{cartCount>0?` (${cartCount})`:''}</button>}
+        <button onClick={onLogout}>Logout</button>
+      </> : null}
+    </div>
+  </nav>;
+}
+
+ReactDOM.render(<App/>, document.getElementById('root'));
+</script>
+</body>
+</html>
