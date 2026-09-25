@@ -12,7 +12,7 @@ prohibited actions literally don't exist in the agent's environment.
 from pydantic import BaseModel, Field
 from typing import Optional
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # ── Enums ──
@@ -105,6 +105,8 @@ class RateLimit(BaseModel):
     requests_per_day: Optional[int] = None
     max_concurrent_sessions: int = 1
     max_items_per_action: Optional[int] = None    # e.g., max 5 items per add_to_cart
+    max_transaction_amount: Optional[float] = None  # Site owner's per-transaction ceiling (USD)
+    max_daily_spend: Optional[float] = None         # Site owner's daily spend ceiling (USD)
 
 
 # ── Data Handling Terms ──
@@ -200,7 +202,7 @@ class TesseraContract(BaseModel):
     site_url: str
     description: str = ""
     tier: ContractTier = ContractTier.STANDARD
-    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     expires_at: Optional[str] = None
 
     # The terminal structure
@@ -246,7 +248,7 @@ class ContractAcceptance(BaseModel):
     """Record of an agent accepting a contract."""
     contract_id: str
     agent: AgentProfile
-    accepted_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    accepted_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     session_id: str = ""
     resolved_permissions: Optional[ResolvedPermissions] = None
 
@@ -260,7 +262,7 @@ class AuditLogEntry(BaseModel):
     agent_provider: str
     agent_name: str
     agent_trust: AgentTrust = AgentTrust.ANONYMOUS
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     screen: str
     action: str
     parameters: dict = {}

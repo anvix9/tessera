@@ -65,3 +65,23 @@ Several contract fields are declared but not checked at runtime:
 | LLM01 | Prompt Injection | Terminal actions pass through to real APIs — injection in action parameters could reach the website |
 | LLM06 | Excessive Agency | The trust-tier self-declaration bug (now fixed) was a direct instance of this risk. Regression tests verify the fix. |
 | LLM07 | Insecure Plugin Design | MCP tools must validate all parameters against the contract before execution |
+
+### Governance Fields Enforcement (Phase 2 — FIXED)
+
+**Status:** Fixed.
+
+All contract governance fields are now enforced at runtime:
+
+| Field | Enforcement |
+|-------|-------------|
+| `requests_per_minute` | Sliding window check on audit log |
+| `requests_per_hour` | Sliding window check on audit log |
+| `requests_per_day` | Sliding window check on audit log |
+| `max_concurrent_sessions` | Checked at connect time |
+| `max_items_per_action` | Validated against quantity-type params |
+| `max_transaction_amount` | Compared to amount-type params |
+| `max_daily_spend` | Rolling 24h accumulator from audit log |
+| `expires_at` | Checked at connect — expired contracts refuse all connections |
+| `user_consent_token` | Required for actions in `required_confirmations` |
+
+Regression tests: `evals/test_enforcement.py` — 32 tests, one per field per scenario.

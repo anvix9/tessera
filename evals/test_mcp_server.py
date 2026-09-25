@@ -57,6 +57,7 @@ def mcp_setup(tmp_path):
         "site_name": "MCP Test Shop",
         "site_url": "http://localhost:9999",
         "require_identification": False,
+        "rate_limits": {"max_concurrent_sessions": 10},
         "screens": [],
     }
     contract_path = str(tmp_path / "contract.json")
