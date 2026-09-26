@@ -15,73 +15,62 @@ Tessera is a governance layer between AI agents and websites. Security issues in
 - Trust tier escalation (agent gaining permissions it shouldn't have)
 - Contract enforcement bypass (agent exceeding rate limits, spending caps, or action restrictions)
 - Session hijacking or token forgery
+- Credential replay across terminals
 - Injection through terminal actions that reach the underlying website
 - Information disclosure through the MCP interface
 
-## Known Issues and Mitigations
+## Fixed Vulnerabilities
 
-### Trust Tier Self-Declaration (FIXED in Phase 1)
+### Trust Tier Self-Declaration (FIXED — Phase 1)
 
-**Status:** Fixed.
+**Issue:** The v0.1 MCP server accepted `trust_level` and `can_transact` as caller-supplied fields. Any agent could self-declare `trust_level=super_agent`.
 
-**Issue:** The v0.1 MCP server accepted `trust_level` and `can_transact` as caller-supplied fields in the connect request. Any agent could self-declare `trust_level=super_agent` with `can_transact=True`.
+**Fix:** The fields were deleted from the request model entirely. Trust is now derived from Ed25519-signed credentials verified against an operator registry. Regression tests prove forged trust payloads are rejected.
 
-**Fix:** The `trust_level` and `can_transact` fields have been removed from `ConnectRequest` entirely. Trust is now derived from Ed25519-signed credentials verified against an operator registry. The field cannot be sent because it does not exist in the request model.
+### Governance Fields Not Enforced (FIXED — Phase 2)
 
-**Regression tests:** `evals/test_trust_regression.py` — 10 tests including:
-- `test_trust_level_field_does_not_exist` — the field is gone from the model
-- `test_can_transact_field_does_not_exist` — the field is gone from the model
-- `test_old_format_ignored` — sending the old format does not grant elevated access
-- `test_forged_credential_rejected` — wrong key → 401
-- `test_tier_capped_at_operator_max` — credential tier capped at operator's registered max
+**Issue:** Contract fields like `max_transaction_amount`, `max_daily_spend`, `requests_per_hour` were declared but never checked at runtime.
 
-### Governance Fields Not Enforced
+**Fix:** All fields are now enforced via `tessera/contract/enforcement.py`. Every field has a unit test and an integration test proving it binds.
 
-**Status:** Identified, fix planned for Phase 2.
+### Operator-Declared Money Limits (FIXED — Audit)
 
-Several contract fields are declared but not checked at runtime:
+**Issue:** The operator could sign a credential with `max_transaction=999999` and the terminal honoured it. The contract's own limits were never read as bounds. Same defect class as the original trust_level bug.
 
-- `max_transaction_amount` — resolved but never compared to actual amounts
-- `max_daily_spend` — passed through, never accumulated
-- `requests_per_hour` / `requests_per_day` — declared, only per-minute checked
-- `max_concurrent_sessions` — not enforced
-- `expires_at` — not honored
+**Fix:** The resolver now takes `min(operator_claim, contract_ceiling)`. Contract validation rejects contracts that permit transactions but omit `max_transaction_amount`. Integration tests prove the contract's number governs, not the operator's.
 
-**Impact:** Contract terms are advisory, not binding. An agent that accepts a contract is not actually constrained by its limits.
+### Credential Hygiene (FIXED — Audit)
 
-**Fix (Phase 2):** Enforcement per field with a test for each, published as a public enforcement matrix.
+**Issue:** No audience claim, 24-hour TTL default, no replay protection.
+
+**Fix:**
+- `aud` claim verified when terminal specifies `expected_audience`
+- TTL hard-capped at 24 hours, default reduced to 1 hour
+- `jti` nonce tracked; same token rejected on second use
+- Periodic cleanup of expired jti entries
+
+## Contract Validation
+
+`tessera/contract/validation.py` catches dangerous omissions before a contract goes live:
+
+| Check | Severity | Description |
+|-------|----------|-------------|
+| Missing `max_transaction_amount` on transactable contracts | Error | Prevents fail-open on forgotten spend limits |
+| Missing `max_daily_spend` | Warning | Advisory; cumulative spend ceiling recommended |
+| No rate limits configured | Warning | At least `requests_per_minute` recommended |
+| Missing `contract_id`, `site_name`, `site_url` | Error | Identity fields required |
 
 ## Supported Versions
 
 | Version | Supported |
 |---------|-----------|
-| 0.2.x   | Yes (current development) |
+| 0.2.x   | Yes (current) |
 | < 0.2   | No |
 
 ## OWASP LLM Top 10 Mapping
 
-| OWASP ID | Risk | Tessera Relevance |
-|----------|------|-------------------|
-| LLM01 | Prompt Injection | Terminal actions pass through to real APIs — injection in action parameters could reach the website |
-| LLM06 | Excessive Agency | The trust-tier self-declaration bug (now fixed) was a direct instance of this risk. Regression tests verify the fix. |
-| LLM07 | Insecure Plugin Design | MCP tools must validate all parameters against the contract before execution |
-
-### Governance Fields Enforcement (Phase 2 — FIXED)
-
-**Status:** Fixed.
-
-All contract governance fields are now enforced at runtime:
-
-| Field | Enforcement |
-|-------|-------------|
-| `requests_per_minute` | Sliding window check on audit log |
-| `requests_per_hour` | Sliding window check on audit log |
-| `requests_per_day` | Sliding window check on audit log |
-| `max_concurrent_sessions` | Checked at connect time |
-| `max_items_per_action` | Validated against quantity-type params |
-| `max_transaction_amount` | Compared to amount-type params |
-| `max_daily_spend` | Rolling 24h accumulator from audit log |
-| `expires_at` | Checked at connect — expired contracts refuse all connections |
-| `user_consent_token` | Required for actions in `required_confirmations` |
-
-Regression tests: `evals/test_enforcement.py` — 32 tests, one per field per scenario.
+| OWASP ID | Risk | Tessera Status |
+|----------|------|----------------|
+| LLM01 | Prompt Injection | Terminal actions pass through to real APIs — parameter validation is contract-bound |
+| LLM06 | Excessive Agency | Fixed. Trust tier self-declaration removed; credential-based, regression-tested |
+| LLM07 | Insecure Plugin Design | MCP tools validate all parameters against the contract before execution |
