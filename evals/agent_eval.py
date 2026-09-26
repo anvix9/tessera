@@ -59,6 +59,7 @@ class AgentTask:
     setup: Optional[Callable] = None        # function(sim_url) to set up state before task
     category: str = "general"
     description: str = ""
+    agent_purpose: str = "purchase"          # must match contract's allowed purposes
 
 
 # ══════════════════════════════════════════════
@@ -208,6 +209,7 @@ def run_agent(
     model: str,
     terminal: TesseraTerminal,
     sim_url: str,
+    verbose_hint: bool = False,
 ) -> AgentRun:
     """Run one agent trial against a task."""
     start = time.monotonic()
@@ -215,19 +217,23 @@ def run_agent(
     invalid_actions = 0
     actions_taken = []
 
-    # Connect
-    agent_profile = AgentProfile(
-        provider="eval",
-        agent_name=f"eval-{model}",
-        trust_level=AgentTrust.VERIFIED,
-        purpose="eval",
-        capabilities=AgentCapabilities(can_transact=True),
-    )
+    # Connect — purpose comes from task config or defaults to 'purchase'
+    agent_config = {
+        "provider": "eval",
+        "agent_name": f"eval-{model}",
+        "trust_level": AgentTrust.VERIFIED,
+        "purpose": task.agent_purpose if hasattr(task, 'agent_purpose') and task.agent_purpose else "purchase",
+        "capabilities": AgentCapabilities(can_transact=True),
+    }
+    agent_profile = AgentProfile(**agent_config)
     connect_result = terminal.connect(agent_profile)
     if connect_result["status"] != "connected":
+        error_msg = f"Connect failed: {connect_result.get('reason', connect_result)}"
+        if verbose_hint:
+            print(f"\n    ⚠ {error_msg}")
         return AgentRun(
             task_id=task.id, model=model, trial=0, passed=False,
-            steps=0, invalid_actions=0, error=f"Connect failed: {connect_result}",
+            steps=0, invalid_actions=0, error=error_msg,
         )
 
     session_id = connect_result["session_id"]
@@ -373,7 +379,7 @@ def run_eval(
                 task.setup(sim_url)
 
             # Run agent
-            run = run_agent(task, model, terminal, sim_url)
+            run = run_agent(task, model, terminal, sim_url, verbose_hint=verbose)
             run.trial = trial + 1
             runs.append(run)
 
