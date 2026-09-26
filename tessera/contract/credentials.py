@@ -82,8 +82,9 @@ def sign_agent_credential(
     tier: str = "identified",
     purpose: str = "general",
     capabilities: Optional[dict] = None,
-    ttl_seconds: int = 86400,
+    ttl_seconds: int = 3600,
     agent_id: Optional[str] = None,
+    audience: Optional[str] = None,
 ) -> str:
     """
     Sign an agent credential (operator side).
@@ -98,12 +99,17 @@ def sign_agent_credential(
         tier: Requested trust tier ("identified", "verified", "super_agent")
         purpose: What the agent intends to do
         capabilities: Dict of capabilities (can_transact, max_transaction, etc.)
-        ttl_seconds: Token lifetime in seconds (default 24 hours)
+        ttl_seconds: Token lifetime in seconds (default 1 hour, max 24 hours)
         agent_id: Optional unique agent instance ID
+        audience: Terminal identity this token is bound to (recommended)
 
     Returns:
         A signed JWT string (header.payload.signature)
     """
+    import uuid as _uuid
+
+    # Cap TTL at 24 hours
+    ttl_seconds = min(ttl_seconds, 86400)
     now = int(time.time())
 
     # Header
@@ -117,7 +123,10 @@ def sign_agent_credential(
         "purpose": purpose,
         "iat": now,
         "exp": now + ttl_seconds,
+        "jti": _uuid.uuid4().hex,  # unique nonce for replay protection
     }
+    if audience:
+        payload["aud"] = audience
     if capabilities:
         payload["cap"] = capabilities
     if agent_id:
@@ -161,9 +170,24 @@ class VerificationError:
 
 # ── Verification (Terminal Side) ──
 
+# Replay protection: track seen jti nonces
+_SEEN_JTIS: dict[str, int] = {}  # jti → expiry timestamp
+_JTI_CLEANUP_INTERVAL = 1000  # clean up every N verifications
+_JTI_VERIFY_COUNT = 0
+
+
+def _cleanup_jtis():
+    """Remove expired jti entries to prevent unbounded growth."""
+    now = int(time.time())
+    expired = [jti for jti, exp in _SEEN_JTIS.items() if now > exp]
+    for jti in expired:
+        del _SEEN_JTIS[jti]
+
+
 def verify_agent_credential(
     token: str,
     registry: OperatorRegistry,
+    expected_audience: Optional[str] = None,
 ) -> VerifiedCredential | VerificationError:
     """
     Verify an agent credential (terminal side).
@@ -173,16 +197,23 @@ def verify_agent_credential(
       2. Look up the operator in the registry
       3. Verify the Ed25519 signature with the operator's public key
       4. Check expiration
-      5. Cap the requested tier at the operator's registered max
-      6. Return the verified credential or an error
+      5. Check audience (if expected_audience is set)
+      6. Check replay (jti nonce)
+      7. Cap the requested tier at the operator's registered max
+      8. Return the verified credential or an error
 
     Args:
         token: The JWT string from the agent
         registry: The operator registry to verify against
+        expected_audience: Terminal identity to check against aud claim (optional)
 
     Returns:
         VerifiedCredential on success, VerificationError on failure
     """
+    global _JTI_VERIFY_COUNT
+    _JTI_VERIFY_COUNT += 1
+    if _JTI_VERIFY_COUNT % _JTI_CLEANUP_INTERVAL == 0:
+        _cleanup_jtis()
     # Step 1: Decode without verification
     parts = token.split(".")
     if len(parts) != 3:
@@ -232,7 +263,34 @@ def verify_agent_credential(
     if iat > now + 60:  # Allow 60s clock skew
         return VerificationError("token_not_yet_valid", "Token issued-at is in the future")
 
-    # Step 5: Cap tier at operator's max
+    # Step 5: Check audience (if terminal specifies expected audience)
+    token_aud = payload.get("aud")
+    if expected_audience:
+        if not token_aud:
+            return VerificationError(
+                "missing_audience",
+                f"Token has no 'aud' claim but terminal requires audience '{expected_audience}'"
+            )
+        # aud can be a string or list
+        aud_list = token_aud if isinstance(token_aud, list) else [token_aud]
+        if expected_audience not in aud_list:
+            return VerificationError(
+                "audience_mismatch",
+                f"Token audience {aud_list} does not include this terminal '{expected_audience}'"
+            )
+
+    # Step 6: Replay protection (jti nonce)
+    jti = payload.get("jti")
+    if jti:
+        if jti in _SEEN_JTIS:
+            return VerificationError(
+                "token_replayed",
+                f"Token with jti '{jti[:12]}...' has already been used"
+            )
+        # Record this jti with its expiry for cleanup
+        _SEEN_JTIS[jti] = exp or (iat + 86400)
+
+    # Step 7: Cap tier at operator's max
     requested_tier = payload.get("tier", "identified")
     max_tier = registry.get_max_tier(operator_id)
 

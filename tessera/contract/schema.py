@@ -9,7 +9,7 @@ The contract is presented to the agent BEFORE any interaction begins.
 The agent's planning layer reads the contract and prunes its action space accordingly —
 prohibited actions literally don't exist in the agent's environment.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional
 from enum import Enum
 from datetime import datetime, timezone
@@ -228,6 +228,40 @@ class TesseraContract(BaseModel):
     # Audit
     log_all_actions: bool = True
     log_data_access: bool = True
+
+    # Validation: deny-by-default for spend paths
+    @model_validator(mode="after")
+    def validate_spend_limits(self):
+        """
+        If the contract allows transaction-level trust (verified or super_agent),
+        it MUST specify spend limits. A contract that permits transactions but
+        omits max_transaction_amount is fail-open — the omission is dangerous,
+        not harmless. This makes it impossible rather than just bad practice.
+        """
+        allows_transactions = False
+
+        # Check if any trust override or default allows verified/super_agent
+        for req in self.action_trust_requirements:
+            if req.min_trust_level in (AgentTrust.VERIFIED, AgentTrust.SUPER_AGENT):
+                allows_transactions = True
+                break
+        for action_id, tier in self.trust_overrides.items():
+            if tier in (AgentTrust.VERIFIED, AgentTrust.SUPER_AGENT):
+                allows_transactions = True
+                break
+
+        if allows_transactions:
+            if self.rate_limits.max_transaction_amount is None:
+                import warnings
+                warnings.warn(
+                    f"Contract '{self.contract_id}' allows verified/super_agent trust "
+                    f"but has no max_transaction_amount. Set rate_limits.max_transaction_amount "
+                    f"to establish a per-transaction ceiling.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+        return self
 
 
 # ── Contract Acceptance ──

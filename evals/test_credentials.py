@@ -15,6 +15,8 @@ import os
 import time
 from pathlib import Path
 
+from tessera.contract.schema import TesseraContract
+
 from tessera.contract.operator_registry import (
     OperatorRegistry,
     OperatorTier,
@@ -225,3 +227,133 @@ class TestEdgeCases:
         token = sign_agent_credential(priv, "persist-op", "agent", tier="identified")
         result = verify_agent_credential(token, reg2)
         assert isinstance(result, VerifiedCredential)
+
+
+# ═══════════════════════════════════════════════
+# CREDENTIAL HYGIENE (audit items A + B)
+# ═══════════════════════════════════════════════
+
+class TestAudienceCheck:
+    """Verify aud claim is checked when terminal specifies expected_audience."""
+
+    def test_matching_audience_accepted(self, registry):
+        token = sign_agent_credential(
+            registry._test_priv, "test-operator", "agent",
+            tier="identified", audience="terminal-001",
+        )
+        result = verify_agent_credential(token, registry, expected_audience="terminal-001")
+        assert isinstance(result, VerifiedCredential)
+
+    def test_wrong_audience_rejected(self, registry):
+        token = sign_agent_credential(
+            registry._test_priv, "test-operator", "agent",
+            tier="identified", audience="terminal-001",
+        )
+        result = verify_agent_credential(token, registry, expected_audience="terminal-999")
+        assert isinstance(result, VerificationError)
+        assert result.code == "audience_mismatch"
+
+    def test_missing_audience_rejected_when_required(self, registry):
+        token = sign_agent_credential(
+            registry._test_priv, "test-operator", "agent",
+            tier="identified",  # no audience
+        )
+        result = verify_agent_credential(token, registry, expected_audience="terminal-001")
+        assert isinstance(result, VerificationError)
+        assert result.code == "missing_audience"
+
+    def test_no_expected_audience_accepts_any(self, registry):
+        token = sign_agent_credential(
+            registry._test_priv, "test-operator", "agent",
+            tier="identified", audience="whatever",
+        )
+        result = verify_agent_credential(token, registry)  # no expected_audience
+        assert isinstance(result, VerifiedCredential)
+
+
+class TestReplayProtection:
+    """Verify jti nonce prevents token replay."""
+
+    def test_same_token_rejected_on_second_use(self, registry):
+        token = sign_agent_credential(
+            registry._test_priv, "test-operator", "replay-agent",
+            tier="identified",
+        )
+        # First use: accepted
+        result1 = verify_agent_credential(token, registry)
+        assert isinstance(result1, VerifiedCredential)
+
+        # Second use: rejected (same jti)
+        result2 = verify_agent_credential(token, registry)
+        assert isinstance(result2, VerificationError)
+        assert result2.code == "token_replayed"
+
+    def test_different_tokens_both_accepted(self, registry):
+        token1 = sign_agent_credential(
+            registry._test_priv, "test-operator", "agent-a",
+            tier="identified",
+        )
+        token2 = sign_agent_credential(
+            registry._test_priv, "test-operator", "agent-b",
+            tier="identified",
+        )
+        result1 = verify_agent_credential(token1, registry)
+        result2 = verify_agent_credential(token2, registry)
+        assert isinstance(result1, VerifiedCredential)
+        assert isinstance(result2, VerifiedCredential)
+
+
+class TestTTLCap:
+    """Verify TTL is capped at 24 hours."""
+
+    def test_ttl_capped_at_24h(self, registry):
+        # Try to create a 7-day token
+        token = sign_agent_credential(
+            registry._test_priv, "test-operator", "long-lived",
+            tier="identified", ttl_seconds=7*86400,
+        )
+        result = verify_agent_credential(token, registry)
+        assert isinstance(result, VerifiedCredential)
+        # Token should expire within 24h, not 7 days
+        assert result.expires_at <= result.issued_at + 86400
+
+
+class TestContractValidation:
+    """Verify contract validation catches dangerous omissions."""
+
+    def test_missing_spend_limit_is_error(self):
+        from tessera.contract.validation import validate_contract
+        contract = TesseraContract(
+            contract_id="no-limits",
+            site_name="Dangerous",
+            site_url="http://localhost",
+            screens=[],
+        )
+        # Add a POST action to trigger the transactable check
+        from tessera.contract.schema import ScreenDefinition, ActionDefinition
+        contract.screens = [ScreenDefinition(
+            id="main", name="Main", description="test",
+            actions=[ActionDefinition(
+                id="buy", name="Buy", description="buy",
+                api_method="POST", api_endpoint="/buy",
+            )],
+        )]
+        errors, warnings = validate_contract(contract)
+        assert any("max_transaction_amount" in e for e in errors)
+
+    def test_valid_contract_passes(self):
+        from tessera.contract.validation import validate_contract
+        from tessera.contract.schema import RateLimit
+        contract = TesseraContract(
+            contract_id="valid",
+            site_name="Valid",
+            site_url="http://localhost",
+            rate_limits=RateLimit(
+                max_transaction_amount=100.0,
+                max_daily_spend=500.0,
+                requests_per_minute=60,
+            ),
+            screens=[],
+        )
+        errors, warnings = validate_contract(contract)
+        assert len(errors) == 0

@@ -54,7 +54,7 @@ tessera = "tessera.cli.main:cli"
 include = ["tessera*"]
 
 [tool.pytest.ini_options]
-testpaths = ["evals", "tests"]
+testpaths = ["evals", "conformance", "tests"]
 python_files = ["test_*.py"]
 
 [tool.setuptools.package-data]
