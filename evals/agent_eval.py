@@ -120,29 +120,103 @@ def list_ollama_models() -> list[str]:
 
 
 def ollama_generate(model: str, prompt: str, system: str = "") -> str:
-    """Call Ollama generate API and return the response text."""
+    """Call Ollama chat API and return the response text.
+    Uses chat (not generate) for better instruction following.
+    Forces JSON format to avoid free-text responses.
+    Strips <think> tags that Qwen3 models emit.
+    """
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
     payload = {
         "model": model,
-        "prompt": prompt,
+        "messages": messages,
         "stream": False,
+        "format": "json",       # Force JSON output
         "options": {
-            "temperature": 0.1,      # low temperature for deterministic actions
-            "num_predict": 512,      # cap output length
+            "temperature": 0.1,
+            "num_predict": 512,
         },
     }
-    if system:
-        payload["system"] = system
 
     try:
         r = http_requests.post(
-            "http://localhost:11434/api/generate",
+            "http://localhost:11434/api/chat",
             json=payload,
             timeout=120,
         )
         data = r.json()
-        return data.get("response", "")
+        content = data.get("message", {}).get("content", "")
+
+        # Strip <think>...</think> blocks (Qwen3 thinking mode)
+        content = _strip_think_tags(content)
+
+        return content.strip()
     except Exception as e:
         return f"ERROR: {e}"
+
+
+def _strip_think_tags(text: str) -> str:
+    """Remove <think>...</think> blocks from model output."""
+    import re
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    text = re.sub(r'</?think>', '', text)
+    return text.strip()
+
+
+def _compact_screen(screen: dict) -> str:
+    """Format a screen response compactly for the LLM.
+    Shows only: screen name, key data, and available actions with their params.
+    """
+    parts = []
+
+    # Screen name
+    screen_info = screen.get("screen", {})
+    if isinstance(screen_info, dict):
+        name = screen_info.get("name", "Unknown")
+    else:
+        name = str(screen_info)
+    parts.append(f"[{name}]")
+
+    # Data (compact — just keys and short values)
+    data = screen.get("data", {})
+    if data and isinstance(data, dict):
+        for key, val in data.items():
+            if isinstance(val, list):
+                # Show list items compactly
+                items = val[:5]  # max 5 items
+                for item in items:
+                    if isinstance(item, dict):
+                        # Show key fields only
+                        compact = {k: v for k, v in item.items()
+                                   if k in ("id", "name", "title", "price", "status", "email", "type")}
+                        parts.append(f"  {key}: {json.dumps(compact)}")
+                    else:
+                        parts.append(f"  {key}: {item}")
+                if len(val) > 5:
+                    parts.append(f"  ... and {len(val) - 5} more")
+            elif isinstance(val, dict):
+                compact = {k: v for k, v in val.items()
+                           if k in ("id", "name", "title", "price", "status", "token", "email")}
+                parts.append(f"  {key}: {json.dumps(compact)}")
+            else:
+                parts.append(f"  {key}: {val}")
+
+    # Available actions
+    actions = screen.get("actions", [])
+    if actions:
+        parts.append("Available actions:")
+        for a in actions:
+            action_id = a.get("id", "?")
+            desc = a.get("description", "")
+            params = a.get("parameters", [])
+            param_names = [p.get("name", "?") for p in params] if params else []
+            param_str = f" (params: {', '.join(param_names)})" if param_names else ""
+            parts.append(f"  - {action_id}: {desc}{param_str}")
+
+    return "\n".join(parts)
 
 
 # ══════════════════════════════════════════════
@@ -190,18 +264,17 @@ def stop_simulation(proc: subprocess.Popen):
 # AGENT LOOP
 # ══════════════════════════════════════════════
 
-SYSTEM_PROMPT = """You are an AI agent navigating a website through a Tessera terminal.
-You see screens with data and available actions. Your job is to complete the given task.
+SYSTEM_PROMPT = """You navigate a website terminal. Each turn you see a screen with available actions.
 
-IMPORTANT RULES:
-1. Respond with EXACTLY ONE action per turn, in this JSON format:
-   {"action": "action_id", "params": {"key": "value"}}
-2. If the task is complete, respond with:
-   {"action": "DONE"}
-3. Only use actions listed in "Available actions"
-4. Read the screen data carefully before choosing an action
+Reply with ONE JSON object. No other text.
 
-Do not explain your reasoning. Only output the JSON action."""
+To act: {"action": "action_id", "params": {"key": "value"}}
+When done: {"action": "DONE"}
+
+Rules:
+- Use ONLY actions shown in "Available actions"
+- If an action needs no params: {"action": "action_id", "params": {}}
+- Never explain. Only JSON."""
 
 
 def run_agent(
@@ -244,13 +317,15 @@ def run_agent(
 
         # Get current screen
         screen = terminal.get_screen(session_id)
-        screen_text = json.dumps(screen, indent=2, default=str)
+
+        # Build a compact screen view for the LLM
+        screen_compact = _compact_screen(screen)
 
         # Build prompt
         prompt = (
             f"TASK: {task.goal}\n\n"
-            f"CURRENT SCREEN:\n{screen_text}\n\n"
-            f"Step {step + 1}/{task.max_steps}. What action do you take?"
+            f"SCREEN: {screen_compact}\n\n"
+            f"Step {step + 1}/{task.max_steps}."
         )
 
         # Ask LLM
@@ -261,7 +336,12 @@ def run_agent(
 
         if action_data is None:
             invalid_actions += 1
-            actions_taken.append({"step": step, "raw": response[:200], "parsed": None, "result": "parse_error"})
+            actions_taken.append({
+                "step": step,
+                "raw": response[:500] if response else "(EMPTY RESPONSE)",
+                "parsed": None,
+                "result": "parse_error",
+            })
             continue
 
         if action_data.get("action") == "DONE":
